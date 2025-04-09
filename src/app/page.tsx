@@ -1,6 +1,8 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Box } from '@mui/material';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Counter {
   id: string;
@@ -25,19 +27,13 @@ const saveData = (data: AppData) => {
 const loadData = (): AppData => {
   const stored = localStorage.getItem('multi-counter-data');
   if (!stored) return { targets: [], countersList: [] };
-  try {
-    const data = JSON.parse(stored);
-    return {
-      targets: Array.isArray(data.targets) ? data.targets : [],
-      countersList: Array.isArray(data.countersList) ? data.countersList : []
-    };
-  } catch (e) {
-    return { targets: [], countersList: [] };
-  }
-};
 
-const generateId = () =>
-  new Date().getTime().toString() + Math.random().toString(36).substring(2);
+  const data = JSON.parse(stored);
+  return {
+    targets: Array.isArray(data.targets) ? data.targets : [],
+    countersList: Array.isArray(data.countersList) ? data.countersList : []
+  };
+};
 
 export default function Home() {
   const [targets, setTargets] = useState<Target[]>([]);
@@ -73,7 +69,7 @@ export default function Home() {
 
   const handleAddTarget = () => {
     if (!newTargetName.trim()) return;
-    const newTarget: Target = { id: generateId(), name: newTargetName, counters: {} };
+    const newTarget: Target = { id: uuidv4(), name: newTargetName, counters: {} };
     countersList.forEach(counter => {
       newTarget.counters[counter.id] = 0;
     });
@@ -94,7 +90,8 @@ export default function Home() {
   const handleDeleteCounter = (id: string) => {
     const updatedCounters = countersList.filter(counter => counter.id !== id);
     const updatedTargets = targets.map(target => {
-      const { [id]: _, ...newCounters } = target.counters;
+      const newCounters = { ...target.counters };
+      delete newCounters[id];
       return { ...target, counters: newCounters };
     });
     setCountersList(updatedCounters);
@@ -104,7 +101,7 @@ export default function Home() {
 
   const handleAddCounter = () => {
     if (!newCounterName.trim()) return;
-    const newCounter: Counter = { id: generateId(), name: newCounterName };
+    const newCounter: Counter = { id: uuidv4(), name: newCounterName };
     const updatedCounters = [...countersList, newCounter];
     const updatedTargets = targets.map(target => ({
       ...target,
