@@ -1,4 +1,6 @@
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+import { RootProvider } from '../contexts/Root';
+
+const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="ja">
       <head>
@@ -11,7 +13,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta charSet="UTF-8" />
         <meta name="description" content="複数のカウンターを一度に操作できるツール" />
       </head>
-      <body>{children}</body>
+      <body>
+        <RootProvider>
+          {children}
+        </RootProvider>
+      </body>
     </html>
   );
-}
+};
+
+export default RootLayout;

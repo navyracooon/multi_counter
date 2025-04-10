@@ -1,156 +1,81 @@
 'use client';
+import React, { useState } from 'react';
+import {
+    Box,
+    Button,
+    Card,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    TextField,
+    Typography,
+} from '@mui/material';
 
-import React, { useState, useEffect } from 'react';
-import { Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Box } from '@mui/material';
-import { v4 as uuidv4 } from 'uuid';
+import { useCounterContext } from '../contexts/Counter';
+import { useTargetContext } from '../contexts/Target';
 
-interface Counter {
-  id: string;
-  name: string;
-}
-
-interface Target {
-  id: string;
-  name: string;
-  counters: { [key: string]: number };
-}
-
-interface AppData {
-  targets: Target[];
-  countersList: Counter[];
-}
-
-const saveData = (data: AppData) => {
-  localStorage.setItem('multi-counter-data', JSON.stringify(data));
-};
-
-const loadData = (): AppData => {
-  const stored = localStorage.getItem('multi-counter-data');
-  if (!stored) return { targets: [], countersList: [] };
-
-  const data = JSON.parse(stored);
-  return {
-    targets: Array.isArray(data.targets) ? data.targets : [],
-    countersList: Array.isArray(data.countersList) ? data.countersList : []
-  };
-};
-
-export default function Home() {
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [countersList, setCountersList] = useState<Counter[]>([]);
+const Page = () => {
+  const { targetList, createTarget, updateTarget, deleteTarget } = useTargetContext();
+  const { counterList, createCounter, retrieveCounter, updateCounter, deleteCounter } = useCounterContext();
   const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [counterModalOpen, setCounterModalOpen] = useState(false);
   const [newTargetName, setNewTargetName] = useState('');
   const [newCounterName, setNewCounterName] = useState('');
 
-  useEffect(() => {
-    const data = loadData();
-    setTargets(data.targets);
-    setCountersList(data.countersList);
-  }, []);
-
-  const handleTargetModalClose = () => {
-    setTargetModalOpen(false);
-  };
-
-  const handleUpdateTargetName = (id: string, newName: string) => {
-    const updatedTargets = targets.map(target =>
-      target.id === id ? { ...target, name: newName } : target
-    );
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList });
-  };
-
-  const handleDeleteTarget = (id: string) => {
-    const updatedTargets = targets.filter(target => target.id !== id);
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList });
-  };
-
   const handleAddTarget = () => {
-    if (!newTargetName.trim()) return;
-    const newTarget: Target = { id: uuidv4(), name: newTargetName, counters: {} };
-    countersList.forEach(counter => {
-      newTarget.counters[counter.id] = 0;
-    });
-    const updatedTargets = [...targets, newTarget];
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList });
+    createTarget(newTargetName);
     setNewTargetName('');
   };
 
-  const handleUpdateCounterName = (id: string, newName: string) => {
-    const updatedCounters = countersList.map(counter =>
-      counter.id === id ? { ...counter, name: newName } : counter
-    );
-    setCountersList(updatedCounters);
-    saveData({ targets, countersList: updatedCounters });
-  };
-
-  const handleDeleteCounter = (id: string) => {
-    const updatedCounters = countersList.filter(counter => counter.id !== id);
-    const updatedTargets = targets.map(target => {
-      const newCounters = { ...target.counters };
-      delete newCounters[id];
-      return { ...target, counters: newCounters };
-    });
-    setCountersList(updatedCounters);
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList: updatedCounters });
-  };
-
   const handleAddCounter = () => {
-    if (!newCounterName.trim()) return;
-    const newCounter: Counter = { id: uuidv4(), name: newCounterName };
-    const updatedCounters = [...countersList, newCounter];
-    const updatedTargets = targets.map(target => ({
-      ...target,
-      counters: { ...target.counters, [newCounter.id]: 0 }
-    }));
-    setCountersList(updatedCounters);
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList: updatedCounters });
+    createCounter(newCounterName);
     setNewCounterName('');
   };
 
-  const updateCounter = (targetId: string, counterId: string, delta: number) => {
-    const updatedTargets = targets.map(target => {
-      if (target.id === targetId) {
-        const newValue = (target.counters[counterId] || 0) + delta;
-        return { ...target, counters: { ...target.counters, [counterId]: newValue } };
-      }
-      return target;
-    });
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList });
+  const handleUpdateCounts = (counterId: string, targetId: string, delta: number) => {
+    const prevCounter = retrieveCounter(counterId);
+    if (prevCounter) {
+      const prevValue = prevCounter.counts[targetId] ?? 0;
+
+      const newCounter = {
+        ...prevCounter,
+        counts: {
+          ...prevCounter.counts,
+          [targetId]: prevValue + delta,
+        }
+      };
+      updateCounter(newCounter);
+    }
   };
 
-  const clearCounter = (targetId: string, counterId: string) => {
-    const updatedTargets = targets.map(target => {
-      if (target.id === targetId) {
-        return { ...target, counters: { ...target.counters, [counterId]: 0 } };
-      }
-      return target;
-    });
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList });
+  const handleClearCounts = (counterId: string, targetId: string) => {
+    const prevCounter = retrieveCounter(counterId);
+    if (prevCounter) {
+      const newCounter = { ...prevCounter, counts: { ...prevCounter.counts, [targetId]: 0 } };
+      updateCounter(newCounter);
+    }
   };
 
-  const clearAllCounters = () => {
-    const updatedTargets = targets.map(target => {
-      const newCounters: { [key: string]: number } = {};
-      Object.keys(target.counters).forEach(key => {
-        newCounters[key] = 0;
-      });
-      return { ...target, counters: newCounters };
+  const handleClearAllCounts = () => {
+    counterList.forEach(counter => {
+      const prevCounter = retrieveCounter(counter.id);
+      if (prevCounter) {
+        const newCounts = { ...prevCounter.counts };
+        targetList.forEach(target => {
+          if (target.id in newCounts) {
+            newCounts[target.id] = 0;
+          }
+        });
+        updateCounter({ ...prevCounter, counts: newCounts });
+      }
     });
-    setTargets(updatedTargets);
-    saveData({ targets: updatedTargets, countersList });
   };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant='h4' component='h1' gutterBottom>
+    <Container maxWidth="md">
+      <Typography variant='h4' component='h1' sx={{ my: 2 }}>
         マルチカウンター
       </Typography>
       <Box sx={{ display: 'flex', gap: 2, mb: 2, justifyContent: 'flex-end' }}>
@@ -161,37 +86,37 @@ export default function Home() {
           カウンター管理
         </Button>
       </Box>
-      {targets.length > 0 && (
+      {targetList.length > 0 && (
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button variant='outlined' onClick={clearAllCounters} sx={{ borderColor: 'red', color: 'red' }}>
+          <Button variant='outlined' onClick={handleClearAllCounts} sx={{ borderColor: 'red', color: 'red' }}>
             一括クリア
           </Button>
         </Box>
       )}
-      {targets.length === 0 ? (
+      {targetList.length === 0 ? (
         <Typography variant='body1' color='textSecondary'>
           対象者が存在しません。対象者を作成してください。
         </Typography>
       ) : (
         <>
-          {targets.map(target => (
-            <Box key={target.id} sx={{ mb: 4, border: '1px solid #ccc', p: 2 }}>
+          {targetList.map(target => (
+            <Card key={target.id} sx={{ mb: 2, p: 2 }}>
               <Typography variant='h6'>対象者：{target.name}</Typography>
-              {countersList.length > 0 ? (
-                countersList.map(counter => (
+              {counterList.length > 0 ? (
+                counterList.map(counter => (
                   <Box key={counter.id} sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                     <Typography sx={{ mr: 2 }}>
-                      {counter.name}：{target.counters[counter.id] ?? 0}
+                      {counter.name}：{(counter.counts[target.id] ?? 0)}
                     </Typography>
-                    <Button variant='outlined' onClick={() => updateCounter(target.id, counter.id, 1)}>
+                    <Button variant='outlined' onClick={() => handleUpdateCounts(counter.id, target.id, 1)}>
                       +
                     </Button>
-                    <Button variant='outlined' sx={{ ml: 1 }} onClick={() => updateCounter(target.id, counter.id, -1)}>
+                    <Button variant='outlined' sx={{ ml: 1 }} onClick={() => handleUpdateCounts(counter.id, target.id, -1)}>
                       -
                     </Button>
                     <Button
                       variant='outlined'
-                      onClick={() => clearCounter(target.id, counter.id)}
+                      onClick={() => handleClearCounts(counter.id, target.id)}
                       sx={{ ml: 1, borderColor: 'red', color: 'red' }}
                     >
                       クリア
@@ -203,18 +128,21 @@ export default function Home() {
                   カウンターが存在しません。カウンターを作成してください。
                 </Typography>
               )}
-            </Box>
+            </Card>
           ))}
         </>
       )}
-      <Dialog open={targetModalOpen} onClose={handleTargetModalClose} fullWidth maxWidth='sm'>
+      <Dialog open={targetModalOpen} onClose={() => setTargetModalOpen(false)} fullWidth maxWidth='sm'>
         <DialogTitle>対象者管理</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 3 }}>
-            {targets.map(target => (
+            {targetList.map(target => (
               <Box key={target.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <TextField label='対象者名' value={target.name} onChange={(e) => handleUpdateTargetName(target.id, e.target.value)} fullWidth />
-                <Button variant='outlined' color='error' onClick={() => handleDeleteTarget(target.id)}>
+                <TextField
+                  label='対象者名'
+                  value={target.name}
+                  onChange={(e) => updateTarget({ id: target.id, name: e.target.value})} fullWidth />
+                <Button variant='outlined' color='error' onClick={() => deleteTarget(target.id)}>
                   削除
                 </Button>
               </Box>
@@ -228,22 +156,22 @@ export default function Home() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleTargetModalClose}>閉じる</Button>
+          <Button onClick={() => setTargetModalOpen(false)}>閉じる</Button>
         </DialogActions>
       </Dialog>
       <Dialog open={counterModalOpen} onClose={() => setCounterModalOpen(false)} fullWidth maxWidth='sm'>
         <DialogTitle>カウンター管理</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 3 }}>
-            {countersList.map(counter => (
+            {counterList.map(counter => (
               <Box key={counter.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <TextField
                   label='カウンター名'
                   value={counter.name}
-                  onChange={(e) => handleUpdateCounterName(counter.id, e.target.value)}
+                  onChange={(e) => updateCounter({ id: counter.id, name: e.target.value, counts: counter.counts })}
                   fullWidth
                 />
-                <Button variant='outlined' color='error' onClick={() => handleDeleteCounter(counter.id)}>
+                <Button variant='outlined' color='error' onClick={() => deleteCounter(counter.id)}>
                   削除
                 </Button>
               </Box>
@@ -260,6 +188,8 @@ export default function Home() {
           <Button onClick={() => setCounterModalOpen(false)}>閉じる</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
-}
+};
+
+export default Page;
